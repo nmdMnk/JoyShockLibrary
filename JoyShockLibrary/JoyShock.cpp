@@ -568,6 +568,30 @@ public:
 		send_command(0x10, (uint8_t*)buf, 0x9);
 	}
 
+	void set_joycon_rumble(int encLeftLowFreq, int encLeftLowAmpli, int encLeftHighFreq, int encLeftHighAmpli,
+		int encRightLowFreq, int encRightLowAmpli, int encRightHighFreq, int encRightHighAmpli) {
+		unsigned char buf[10];
+		memset(buf, 0, 10);
+		buf[0] = 0x10;
+		buf[1] = (++global_count) & 0xF;
+		// LEFT
+		buf[2] = encLeftHighFreq & 0xff;
+		buf[3] = encLeftHighAmpli + ((encLeftHighFreq >> 8) & 0xff);
+		buf[4] = encLeftLowFreq + ((encLeftLowAmpli >> 8) & 0xff);
+		buf[5] = encLeftLowAmpli & 0xff;
+		// RIGHT
+		buf[6] = encRightHighFreq & 0xff;
+		buf[7] = encRightHighAmpli + ((encRightHighFreq >> 8) & 0xff);
+		buf[8] = encRightLowFreq + ((encRightLowAmpli >> 8) & 0xff);
+		buf[9] = encRightLowAmpli & 0xff;
+
+		if (global_count > 0xF) {
+			global_count = 0x0;
+		}
+
+		hid_write(handle, buf, 10);
+	}
+
 	bool get_switch_controller_info() {
 		bool result = false;
 

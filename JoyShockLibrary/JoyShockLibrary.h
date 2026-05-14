@@ -248,5 +248,10 @@ extern "C" JOY_SHOCK_API int JslGetControllerColour(int deviceId);
 extern "C" JOY_SHOCK_API void JslSetLightColour(int deviceId, int colour);
 // set controller rumble
 extern "C" JOY_SHOCK_API void JslSetRumble(int deviceId, int smallRumble, int bigRumble);
+// set HD Rumble for Nintendo Switch controllers (unified left+right)
+// lowFreq: 41-626 Hz, highFreq: 82-1252 Hz, amplitudes: 0.0-1.0
+extern "C" JOY_SHOCK_API void JslSetHDRumble(int deviceId, float lowFreq, float lowAmpli, float highFreq, float highAmpli);
+// set HD Rumble for Nintendo Switch controllers (independent left/right)
+extern "C" JOY_SHOCK_API void JslSetHDRumbleLR(int deviceId, float lowFreq_L, float lowAmpli_L, float highFreq_L, float highAmpli_L, float lowFreq_R, float lowAmpli_R, float highFreq_R, float highAmpli_R);
 // set controller player number indicator (not all controllers have a number indicator which can be set, but that just means nothing will be done when this is called -- no harm)
 extern "C" JOY_SHOCK_API void JslSetPlayerNumber(int deviceId, int number);

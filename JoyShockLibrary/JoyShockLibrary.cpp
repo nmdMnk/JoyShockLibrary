@@ -3,6 +3,8 @@
 
 #include "JoyShockLibrary.h"
 #include <bitset>
+#include <algorithm>
+#include <cmath>
 #include "hidapi.h"
 #include <chrono>
 #include <thread>
@@ -1160,6 +1162,93 @@ void JslSetPlayerNumber(int deviceId, int number)
                 jc->led_g,
                 jc->led_b,
                 jc->player_number);
+		jc->modifying_lock.unlock();
+	}
+}
+
+static int encodeLowFreq(float lowFreq) {
+	float lf = std::clamp(lowFreq, 40.875885f, 626.286133f);
+	return (int)std::round(32 * std::log2(lf * 0.1)) - 0x40;
+}
+static int encodeHighFreq(float highFreq) {
+	float hf = std::clamp(highFreq, 81.75177f, 1252.572266f);
+	return (int)(std::round(32 * std::log2(hf * 0.1)) - 0x60) * 4;
+}
+static int encodeLowAmpli(float rawAmpli) {
+	int encodedAmpli = 0;
+	if (0 < rawAmpli && rawAmpli < 0.012f) {
+		encodedAmpli = 1;
+	}
+	else if (0.012f <= rawAmpli && rawAmpli < 0.112f) {
+		encodedAmpli = (int)std::round(4 * std::log2(rawAmpli * 110));
+	}
+	else if (0.112f <= rawAmpli && rawAmpli < 0.225f) {
+		encodedAmpli = (int)std::round(16 * std::log2(rawAmpli * 17));
+	}
+	else if (0.225f <= rawAmpli && rawAmpli <= 1.0f) {
+		encodedAmpli = (int)std::round(32 * std::log2(rawAmpli * 8.7));
+	}
+	return (int)std::floor(encodedAmpli / 2) + 64;
+}
+static int encodeHighAmpli(float rawAmpli) {
+	int encodedAmpli = 0;
+	if (0 < rawAmpli && rawAmpli < 0.012f) {
+		encodedAmpli = 1;
+	}
+	else if (0.012f <= rawAmpli && rawAmpli < 0.112f) {
+		encodedAmpli = (int)std::round(4 * std::log2(rawAmpli * 110));
+	}
+	else if (0.112f <= rawAmpli && rawAmpli < 0.225f) {
+		encodedAmpli = (int)std::round(16 * std::log2(rawAmpli * 17));
+	}
+	else if (0.225f <= rawAmpli && rawAmpli <= 1.0f) {
+		encodedAmpli = (int)std::round(32 * std::log2(rawAmpli * 8.7));
+	}
+	return encodedAmpli * 2;
+}
+
+// set HD Rumble for Nintendo Switch controllers (unified left+right)
+void JslSetHDRumble(int deviceId, float lowFreq, float lowAmpli, float highFreq, float highAmpli)
+{
+	std::shared_lock<std::shared_timed_mutex> lock(_connectedLock);
+	JoyShock* jc = GetJoyShockFromHandle(deviceId);
+	if (jc != nullptr && jc->controller_type == ControllerType::n_switch) {
+		jc->modifying_lock.lock();
+		int lf = encodeLowFreq(lowFreq);
+		int la = encodeLowAmpli(lowAmpli);
+		int hf = encodeHighFreq(highFreq);
+		int ha = encodeHighAmpli(highAmpli);
+
+		jc->small_rumble = (int)(lowAmpli * 255);
+		jc->big_rumble = (int)(highAmpli * 255);
+		jc->set_joycon_rumble(
+			lf, la, hf, ha,
+			lf, la, hf, ha
+		);
+		jc->modifying_lock.unlock();
+	}
+}
+
+// set HD Rumble for Nintendo Switch controllers (independent left/right)
+void JslSetHDRumbleLR(int deviceId, float lowFreq_L, float lowAmpli_L, float highFreq_L, float highAmpli_L,
+	float lowFreq_R, float lowAmpli_R, float highFreq_R, float highAmpli_R)
+{
+	std::shared_lock<std::shared_timed_mutex> lock(_connectedLock);
+	JoyShock* jc = GetJoyShockFromHandle(deviceId);
+	if (jc != nullptr && jc->controller_type == ControllerType::n_switch) {
+		jc->modifying_lock.lock();
+		jc->small_rumble = (int)((lowAmpli_L + lowAmpli_R) / 2 * 255);
+		jc->big_rumble = (int)((highAmpli_L + highAmpli_R) / 2 * 255);
+		jc->set_joycon_rumble(
+			encodeLowFreq(lowFreq_L),
+			encodeLowAmpli(lowAmpli_L),
+			encodeHighFreq(highFreq_L),
+			encodeHighAmpli(highAmpli_L),
+			encodeLowFreq(lowFreq_R),
+			encodeLowAmpli(lowAmpli_R),
+			encodeHighFreq(highFreq_R),
+			encodeHighAmpli(highAmpli_R)
+		);
 		jc->modifying_lock.unlock();
 	}
 }
